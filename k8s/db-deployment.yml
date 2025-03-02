@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: jmartynova123/dev-lab1-db:latest
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: POSTGRES_PASSWORD
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: init-sql
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init-sql
+          configMap:
+            name: db-init-sql
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+data:
+  POSTGRES_DB: "times"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-init-sql
+data:
+  init.sql: |
+    DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'public') THEN
+        CREATE SCHEMA public;
+    END IF;
+END $$;
+GRANT ALL ON SCHEMA public TO myuser;
+CREATE TABLE zone (
+    id SERIAL NOT NULL,
+     name VARCHAR(256),
+    timezone VARCHAR(20),
+    PRIMARY KEY (id)
+);
+INSERT INTO zone (name, timezone) VALUES ('London', 'Europe/London');
+INSERT INTO zone (name, timezone) VALUES ('Moscow', 'Europe/Moscow');
+INSERT INTO zone (name, timezone) VALUES ('New York', 'America/New_York');
+INSERT INTO zone (name, timezone) VALUES ('Sydney', 'Australia/Sydney');
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+data:
+  POSTGRES_USER: "bXl1c2Vy"  
+  POSTGRES_PASSWORD: "bXlwYXNzd29yZA==" 
